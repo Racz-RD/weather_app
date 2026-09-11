@@ -15,6 +15,17 @@ class FakeResponse:
         return self.payload
 
 
+class ErrorResponse:
+    def raise_for_status(self):
+        raise weather_service.httpx.HTTPStatusError(
+            "upstream failure",
+            request=weather_service.httpx.Request(
+                "GET", "https://api.open-meteo.com/v1/forecast"
+            ),
+            response=weather_service.httpx.Response(503),
+        )
+
+
 def weather_payload():
     return {
         "current": {
@@ -54,11 +65,17 @@ class WeatherDashboardTests(unittest.TestCase):
     def test_fetch_weather_uses_next_six_hours_after_current_hour(self):
         with patch.object(
             self.service.httpx, "get", return_value=FakeResponse(weather_payload())
-        ):
+        ) as mock_get:
             result = self.service.fetch_weather(
                 "Test location", (44.8, 20.2)
             )
 
+        mock_get.assert_called_once()
+        self.assertEqual(
+            mock_get.call_args.args[0],
+            "https://api.open-meteo.com/v1/forecast",
+        )
+        self.assertEqual(mock_get.call_args.kwargs["timeout"], 10)
         self.assertEqual(result["Condition"], "Partly cloudy")
         self.assertEqual(result["Next 6h Rain (mm)"], 15)
         self.assertEqual(result["Next 6h Max Rain (mm/h)"], 5)
@@ -69,7 +86,7 @@ class WeatherDashboardTests(unittest.TestCase):
 
     def test_get_weather_alerts_reports_next_six_hour_events(self):
         row = {
-            "Next 6h Max Temperature (°C)": 36,
+            "Next 6h Max Temperature (°C)": 38,
             "Next 6h Max Wind Gust (km/h)": 75,
             "Next 6h Max Rain (mm/h)": 5,
             "Next 6h Max Rain Probability (%)": 80,
@@ -78,13 +95,29 @@ class WeatherDashboardTests(unittest.TestCase):
 
         alerts = self.service.get_weather_alerts(row)
 
-        self.assertIn("High temperature possible: 36°C", alerts)
+        self.assertIn("High temperature possible: 38°C", alerts)
         self.assertIn("Strong wind gusts possible: 75 km/h", alerts)
         self.assertIn(
             "Rain likely in next 6 hours: up to 5 mm/hour (80% probability)",
             alerts,
         )
         self.assertIn("Thunderstorm possible in next 6 hours", alerts)
+
+    def test_fetch_weather_propagates_upstream_http_errors(self):
+        with patch.object(self.service.httpx, "get", return_value=ErrorResponse()):
+            with self.assertRaises(self.service.httpx.HTTPStatusError):
+                self.service.fetch_weather("Test location", (44.8, 20.2))
+
+    def test_fetch_weather_rejects_malformed_upstream_payload(self):
+        malformed_payload = {"current": {"time": "2026-09-09T22:30"}}
+
+        with patch.object(
+            self.service.httpx,
+            "get",
+            return_value=FakeResponse(malformed_payload),
+        ):
+            with self.assertRaises(KeyError):
+                self.service.fetch_weather("Test location", (44.8, 20.2))
 
     def test_get_weather_alerts_returns_no_alerts_below_thresholds(self):
         row = {
