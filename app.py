@@ -9,17 +9,17 @@ st.title("🌤️ Weather Dashboard")
 st.markdown("Real-time weather data from Open-Meteo")
 
 locations = {
-    'Dobanovci': (44.8263, 20.2248),
-    'Kraljevo': (43.7258, 20.6894),
-    'Nis': (43.3247, 21.9033),
-    'Novi Sad': (45.2516, 19.8369),
-    'Istčno Sarajevo': (43.8295, 18.3588),
-    'Laktaši': (44.9069, 17.3017),
-    'Bijeljina': (44.7574, 19.2177),
-    'Skoplje': (41.9940, 21.4359),
-    'Podgorica': (42.4380, 19.2655),
-    'Danilovgrad': (42.5524, 19.1053),
-    'Tirana': (41.3281,19.8184),
+    'Dobanovci': (44.8084, 20.2346),
+    'Kraljevo': (43.7295, 20.7113),
+    'Nis': (43.3412, 21.8817),
+    'Novi Sad': (45.2875, 19.8070),
+    'Istčno Sarajevo': (43.8052, 18.3412),
+    'Laktaši': (44.8841, 17.3005),
+    'Bijeljina': (44.7391, 19.1787),
+    'Skoplje': (42.0060, 21.5499),
+    'Podgorica': (42.4156, 19.2032),
+    'Danilovgrad': (42.5309, 19.1167),
+    'Tirana': (41.3700,19.5592),
 }
 
 @st.fragment(run_every=900)
