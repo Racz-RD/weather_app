@@ -1,8 +1,12 @@
+import logging
+
 import httpx
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 from weather_service import fetch_weather, get_weather_alerts
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="Weather Dashboard", page_icon="🌤️", layout="wide")
 st.title("🌤️ Weather Dashboard")
@@ -24,7 +28,6 @@ locations = {
 
 @st.fragment(run_every=900)
 def render_dashboard():
-    fetch_weather.clear()
     selected_locations = st.multiselect(
         "Selected locations",
         list(locations.keys()),
@@ -37,12 +40,13 @@ def render_dashboard():
         for location in selected_locations:
             try:
                 data.append(fetch_weather(location, locations[location]))
-            except (httpx.HTTPError, KeyError, TypeError) as error:
-                errors.append(f"{location}: {error}")
+            except (httpx.HTTPError, KeyError, TypeError, ValueError):
+                logger.warning("Could not load weather data for %s", location, exc_info=True)
+                errors.append(location)
 
         if errors:
             for error in errors:
-                st.warning(f"Could not load weather data for {error}")
+                st.warning(f"Could not load weather data for {error}.")
 
         if data:
             df = pd.DataFrame(data)

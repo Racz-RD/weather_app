@@ -116,7 +116,7 @@ class WeatherDashboardTests(unittest.TestCase):
             "get",
             return_value=FakeResponse(malformed_payload),
         ):
-            with self.assertRaises(KeyError):
+            with self.assertRaises(ValueError):
                 self.service.fetch_weather("Test location", (44.8, 20.2))
 
     def test_get_weather_alerts_returns_no_alerts_below_thresholds(self):

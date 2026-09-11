@@ -1,4 +1,5 @@
 from datetime import datetime
+from math import isfinite
 
 import httpx
 import streamlit as st
@@ -44,6 +45,50 @@ WEATHER_CODE_DESCRIPTIONS = {
     99: "Thunderstorm with heavy hail",
 }
 
+CURRENT_FIELDS = {
+    "time",
+    "temperature_2m",
+    "relative_humidity_2m",
+    "wind_speed_10m",
+    "wind_gusts_10m",
+    "precipitation",
+    "weather_code",
+}
+HOURLY_FIELDS = {
+    "time",
+    "temperature_2m",
+    "precipitation",
+    "precipitation_probability",
+    "wind_gusts_10m",
+    "weather_code",
+}
+
+
+def _validate_weather_payload(weather):
+    if not isinstance(weather, dict):
+        raise ValueError("Weather response must be an object")
+
+    current = weather.get("current")
+    hourly = weather.get("hourly")
+    if not isinstance(current, dict) or not isinstance(hourly, dict):
+        raise ValueError("Weather response is missing current or hourly data")
+
+    missing_current = CURRENT_FIELDS - current.keys()
+    missing_hourly = HOURLY_FIELDS - hourly.keys()
+    if missing_current or missing_hourly:
+        raise ValueError("Weather response is missing required fields")
+
+    lengths = {len(hourly[field]) for field in HOURLY_FIELDS}
+    if len(lengths) != 1 or not lengths or next(iter(lengths)) < 7:
+        raise ValueError("Weather response contains an incomplete forecast")
+
+    numeric_fields = CURRENT_FIELDS - {"time", "weather_code"}
+    for field in numeric_fields:
+        if not isinstance(current[field], (int, float)) or not isfinite(current[field]):
+            raise ValueError("Weather response contains invalid current data")
+
+    return current, hourly
+
 
 @st.cache_data(ttl=600, show_spinner=False)
 def fetch_weather(location, coordinates):
@@ -68,8 +113,7 @@ def fetch_weather(location, coordinates):
     )
     response.raise_for_status()
     weather = response.json()
-    current = weather["current"]
-    hourly = weather["hourly"]
+    current, hourly = _validate_weather_payload(weather)
     current_time = datetime.fromisoformat(current["time"])
     # Current observations may fall between the hourly forecast timestamps.
     current_hour_index = min(
